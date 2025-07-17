@@ -7,9 +7,7 @@
             "command": "go",
             "args": [
                 "build",
-                "-o",
-                "bin/go-scheduler",
-                "./cmd/main.go"
+                "./..."
             ],
             "group": {
                 "kind": "build",
@@ -28,12 +26,33 @@
             ]
         },
         {
-            "label": "run",
+            "label": "build example",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-Command",
+                "mkdir -Force bin; go build -o bin/simple.exe ./examples/simple/main.go"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [
+                "$go"
+            ]
+        },
+        {
+            "label": "run example",
             "type": "shell",
             "command": "go",
             "args": [
                 "run",
-                "./cmd/main.go"
+                "./examples/simple/main.go"
             ],
             "group": "build",
             "presentation": {

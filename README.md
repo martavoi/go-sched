@@ -1,41 +1,136 @@
 # go-scheduler
 
-A lightweight, concurrent job scheduler for Go that efficiently processes background tasks using goroutines with graceful shutdown support.
+A lightweight, concurrent job scheduler library for Go that efficiently processes background tasks using goroutines with graceful shutdown support.
 
 ## Features
 
-- **Concurrent Processing**: Configurable number of worker goroutines
-- **Rate-Limited Fetching**: Controlled job retrieval from storage
+- **Type-Safe Generics**: Compile-time type safety for job payloads
+- **Concurrent Processing**: Configurable number of worker goroutines  
+- **Demand-Driven Fetching**: Fetches jobs based on worker capacity, not timers
 - **Graceful Shutdown**: Proper cleanup on termination signals
 - **I/O Optimized**: Designed for HTTP requests, database operations, and other I/O-bound tasks
+
+## Installation
+
+```bash
+go get github.com/yourname/go-scheduler
+```
 
 ## Quick Start
 
 ```go
-// Configure workers and fetch interval
-const workerCount = 20
-const interval = 3 * time.Second
+package main
 
-// Create job handler
-jobHandler := func(ctx context.Context, job *scheduler.JobEntry) error {
-    // Your job logic here (HTTP requests, DB operations, etc.)
-    return nil
+import (
+    "context"
+    "log/slog"
+    "os"
+    "os/signal"
+    "syscall"
+    "time"
+    
+    "github.com/yourname/go-scheduler"
+    "github.com/yourname/go-scheduler/storage"
+)
+
+func main() {
+    // Setup signal handling for graceful shutdown
+    sigChan := make(chan os.Signal, 1)
+    signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+
+    // Create storage and logger
+    store := storage.NewMemoryStore[any]()
+    log := slog.New(slog.NewTextHandler(os.Stdout, nil))
+    
+    // Add a job
+    job := &scheduler.Job[any]{
+        Id:           "job-1",
+        Status:       "pending",
+        ProcessAfter: time.Now(),
+        Payload:      nil,
+    }
+    store.AddJob(job)
+    
+    // Create job handler
+    jobHandler := func(ctx context.Context, job *scheduler.Job[any]) error {
+        log.Info("processing job", "job-id", job.Id)
+        time.Sleep(1 * time.Second) // Simulate work
+        log.Info("job completed", "job-id", job.Id)
+        return nil
+    }
+    
+    // Configure and start scheduler
+    const workerCount = 2
+    const fetchInterval = 1 * time.Second
+    
+    scheduler := scheduler.NewScheduler(store, workerCount, fetchInterval, jobHandler, log)
+    done := scheduler.Run(ctx)
+    
+    log.Info("scheduler started - press Ctrl+C to stop gracefully")
+    
+    // Wait for shutdown signal
+    sig := <-sigChan
+    log.Info("received shutdown signal", "signal", sig)
+    cancel()
+    
+    // Wait for graceful shutdown
+    <-done
+    log.Info("scheduler stopped gracefully")
 }
+```
 
-// Start scheduler
-storage := storage.NewInMemStorage()
-scheduler := scheduler.NewScheduler(storage, workerCount, interval, jobHandler, logger)
+## Library Structure
 
-done := scheduler.Run(ctx)
-<-done // Wait for graceful shutdown
+```
+go-scheduler/
+├── scheduler.go        # Main scheduler implementation
+├── job.go             # Job types and interfaces
+├── storage/           # Storage implementations
+│   └── memory.go     # In-memory store (for development/testing)
+└── examples/         # Usage example
+    └── simple/       # Complete working example
+```
+
+## Storage Implementations
+
+### Memory Store (Included)
+
+Perfect for development, testing, and small-scale applications:
+
+```go
+store := storage.NewMemoryStore[YourPayloadType]()
+```
+
+### Custom Storage
+
+Implement the `JobStore` interface for your database:
+
+```go
+type JobStore[T any] interface {
+    FetchPendingJobs(after time.Time, limit int) ([]*Job[T], error)
+    UpdateJob(job *Job[T]) error  
+    AddJob(job *Job[T]) error
+}
+```
+
+Examples: PostgreSQL, Redis, MongoDB, etc.
+
+## Running the Example
+
+```bash
+cd examples/simple
+go run main.go
 ```
 
 ## Configuration
 
-| Parameter | Description | Typical Value |
-|-----------|-------------|---------------|
-| `workerCount` | Number of concurrent goroutines | 20-80 |
-| `interval` | Job fetch frequency | 2-5 seconds |
+| Parameter | Description | Recommended Value |
+|-----------|-------------|-------------------|
+| `workerCount` | Number of concurrent goroutines | CPU_cores × 10-20 for I/O-bound |
+| `fetchInterval` | Pause when no jobs available | 1-5 seconds |
 
 ## Performance Tuning
 
@@ -58,8 +153,35 @@ CPU-intensive jobs should match core count:
 The scheduler handles `SIGTERM` and `SIGINT` signals:
 
 1. Stops fetching new jobs
-2. Waits for active workers to complete
-3. Cleans up remaining jobs in queue
+2. Waits for active workers to complete current jobs
+3. Marks unprocessed jobs as "pending" for retry
 4. Exits cleanly
 
 Perfect for containerized environments (Docker, Kubernetes).
+
+## Type Safety
+
+The scheduler uses **Go generics** for compile-time type safety:
+
+```go
+// ✅ Simple payload (any type)
+store := storage.NewMemoryStore[any]()
+
+// ✅ Custom payload type
+type EmailJob struct {
+    UserID string
+    Email  string
+}
+store := storage.NewMemoryStore[EmailJob]()
+
+// ✅ Type-safe payload access (no type assertions!)
+func handler(ctx context.Context, job *scheduler.Job[EmailJob]) error {
+    email := job.Payload.Email    // Direct access, compile-time verified
+    userID := job.Payload.UserID  // No runtime type checking needed
+    return sendEmail(email, userID)
+}
+```
+
+## License
+
+MIT
