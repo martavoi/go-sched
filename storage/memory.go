@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"go-scheduler"
+	scheduler "go-sched"
 )
 
 // MemoryStore is an in-memory implementation of JobStore for testing and development
@@ -43,7 +43,7 @@ func (s *MemoryStore[T]) UpdateJob(job *scheduler.Job[T]) error {
 		return fmt.Errorf("job not found: %s", job.Id)
 	}
 
-	// Update the existing job with new values
+	// Update fields
 	existingJob.Status = job.Status
 	existingJob.ProcessedAt = job.ProcessedAt
 
@@ -58,4 +58,12 @@ func (s *MemoryStore[T]) AddJob(job *scheduler.Job[T]) error {
 
 	s.jobs[job.Id] = job
 	return nil
+}
+
+func (s *MemoryStore[T]) GetJobs() map[string]*scheduler.Job[T] {
+	result := make(map[string]*scheduler.Job[T])
+	for k, v := range s.jobs {
+		result[k] = v
+	}
+	return result
 }

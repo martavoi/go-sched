@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"go-scheduler"
-	"go-scheduler/storage"
+	scheduler "go-sched"
+	"go-sched/storage"
 )
 
 func main() {
@@ -62,7 +62,7 @@ func main() {
 	const workerCount = 5
 	const interval = 2 * time.Second
 
-	scheduler := scheduler.NewScheduler(store, workerCount, interval, jobHandler, log)
+	scheduler := scheduler.NewScheduler[any](store, workerCount, interval, jobHandler, log)
 	done := scheduler.Run(ctx)
 
 	log.Info("scheduler started",

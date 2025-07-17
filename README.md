@@ -1,4 +1,4 @@
-# go-scheduler
+# go-sched
 
 A lightweight, concurrent job scheduler library for Go that efficiently processes background tasks using goroutines with graceful shutdown support.
 
@@ -13,7 +13,7 @@ A lightweight, concurrent job scheduler library for Go that efficiently processe
 ## Installation
 
 ```bash
-go get github.com/yourname/go-scheduler
+go get github.com/martavoi/go-sched
 ```
 
 ## Quick Start
@@ -29,8 +29,8 @@ import (
     "syscall"
     "time"
     
-    "github.com/yourname/go-scheduler"
-    "github.com/yourname/go-scheduler/storage"
+    "github.com/martavoi/go-sched"
+    "github.com/martavoi/go-sched/storage"
 )
 
 func main() {
@@ -85,7 +85,7 @@ func main() {
 ## Library Structure
 
 ```
-go-scheduler/
+go-sched/
 ├── scheduler.go        # Main scheduler implementation
 ├── job.go             # Job types and interfaces
 ├── storage/           # Storage implementations
