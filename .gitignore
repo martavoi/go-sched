@@ -18,4 +18,9 @@
 go.work
 
 # Build output directory
-bin/ 
+bin/
+
+# Node.js dependencies (for semantic-release)
+node_modules/
+package-lock.json
+npm-debug.log* 

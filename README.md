@@ -184,4 +184,4 @@ func handler(ctx context.Context, job *scheduler.Job[EmailJob]) error {
 
 ## License
 
-MIT
+Apache License

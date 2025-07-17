@@ -1,0 +1,16 @@
+{
+  "name": "go-sched",
+  "version": "0.0.0-development",
+  "description": "A lightweight, concurrent job scheduler library for Go",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/martavoi/go-sched.git"
+  },
+  "license": "Apache-2.0",
+  "private": true,
+  "devDependencies": {
+    "semantic-release": "^22.0.0",
+    "@semantic-release/changelog": "^6.0.0",
+    "@semantic-release/git": "^10.0.0"
+  }
+} 
