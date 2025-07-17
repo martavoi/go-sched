@@ -87,7 +87,7 @@ func (s *Scheduler[T]) Run(ctx context.Context) <-chan struct{} {
 
 					// Dispatch all fetched jobs
 					for _, entry := range entries {
-						s.log.Info("dispatching job", "job-id", entry.Id)
+						s.log.Debug("dispatching job", "job-id", entry.Id)
 						// Mark as dispatched when putting in channel to prevent duplicate fetching
 						entry.Status = "processing"
 						err := s.store.UpdateJob(entry)
