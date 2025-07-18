@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/martavoi/go-sched/compare/v1.2.0...v1.3.0) (2025-07-18)
+
+
+### Features
+
+* exponential backoff for all storage ops ([dafab0f](https://github.com/martavoi/go-sched/commit/dafab0f1c8e2f333911e0530cb6c1c3c074dac21))
+
 # [1.2.0](https://github.com/martavoi/go-sched/compare/v1.1.0...v1.2.0) (2025-07-18)
 
 
