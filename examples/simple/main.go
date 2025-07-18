@@ -43,7 +43,7 @@ func main() {
 	}
 
 	// Create a job handler with random processing time
-	jobHandler := func(ctx context.Context, job *scheduler.Job[any]) error {
+	jobHandler := func(ctx context.Context, job scheduler.Job[any]) error {
 		// Random processing time between 1-8 seconds
 		processingTime := time.Duration(rand.Intn(8)+1) * time.Second
 

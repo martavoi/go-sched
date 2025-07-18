@@ -17,6 +17,19 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// EmailJob represents an email sending task
+type EmailJob struct {
+	To      string `json:"to" bson:"to"`
+	Subject string `json:"subject" bson:"subject"`
+	Type    string `json:"type" bson:"type"`
+}
+
+// Sample email types and recipients
+var emailTypes = []string{"welcome", "newsletter", "reminder", "notification"}
+var recipients = []string{
+	"alice@example.com", "bob@company.org", "charlie@startup.io", "diana@tech.com",
+}
+
 func main() {
 	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -49,35 +62,59 @@ func main() {
 
 	log.Info("connected to MongoDB", "uri", mongoURI)
 
-	// Create MongoDB storage
+	// Create MongoDB storage for email jobs
 	db := client.Database("scheduler")
-	store := mongostore.NewMongoStore[any](db, "jobs")
+	store := mongostore.NewMongoStore[EmailJob](db, "email_jobs")
 
-	// Add sample jobs with random scheduling
-	for i := 1; i <= 50; i++ {
+	// Add sample email jobs with random scheduling
+	for i := 1; i <= 20; i++ {
 		// Random delay between 1-30 seconds from now
 		randomDelay := time.Duration(rand.Intn(30)+1) * time.Second
 
-		job := scheduler.NewJob[any](time.Now().Add(randomDelay), nil)
+		// Create simple email job
+		emailType := emailTypes[rand.Intn(len(emailTypes))]
+		recipient := recipients[rand.Intn(len(recipients))]
+
+		emailJob := EmailJob{
+			To:      recipient,
+			Subject: fmt.Sprintf("%s email #%d", emailType, i),
+			Type:    emailType,
+		}
+
+		job := scheduler.NewJob(time.Now().Add(randomDelay), emailJob)
 
 		if err := store.AddJob(job); err != nil {
-			log.Error("failed to add job", "job-id", job.Id, "error", err)
+			log.Error("failed to add email job", "job-id", job.Id, "error", err)
 		}
 	}
 
-	// Create a job handler with random processing time
-	jobHandler := func(ctx context.Context, job *scheduler.Job[any]) error {
-		// Random processing time between 1-8 seconds
-		processingTime := time.Duration(rand.Intn(8)+1) * time.Second
+	// Create email sending job handler
+	jobHandler := func(ctx context.Context, job scheduler.Job[EmailJob]) error {
+		email := job.Payload
 
-		log.Info("processing job",
+		// Random processing time between 1-5 seconds (email sending simulation)
+		processingTime := time.Duration(rand.Intn(5)+1) * time.Second
+
+		log.Info("sending email",
 			"job-id", job.Id,
+			"to", email.To,
+			"type", email.Type,
+			"subject", email.Subject,
 			"duration", fmt.Sprintf("%.2fs", processingTime.Seconds()))
 
-		// Simulate work with random duration
+		// Simulate email sending work
 		time.Sleep(processingTime)
 
-		log.Info("job completed", "job-id", job.Id)
+		// Simulate occasional failures (5% failure rate)
+		if rand.Intn(100) < 5 {
+			log.Error("failed to send email", "job-id", job.Id, "to", email.To, "error", "SMTP server temporarily unavailable")
+			return fmt.Errorf("SMTP server temporarily unavailable")
+		}
+
+		log.Info("email sent successfully",
+			"job-id", job.Id,
+			"to", email.To,
+			"type", email.Type)
 		return nil
 	}
 
@@ -89,12 +126,13 @@ func main() {
 	scheduler := scheduler.NewScheduler(store, workerCount, interval, visibilityTimeout, jobHandler, log)
 	done := scheduler.Run(ctx)
 
-	log.Info("scheduler started",
+	log.Info("email scheduler started",
 		"workers", workerCount,
 		"interval", interval,
 		"visibility_timeout", visibilityTimeout,
-		"jobs", 50,
-		"storage", "mongodb")
+		"jobs", 20,
+		"storage", "mongodb",
+		"collection", "email_jobs")
 	log.Info("press Ctrl+C to stop gracefully")
 
 	// Wait for shutdown signal

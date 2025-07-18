@@ -11,7 +11,8 @@ import (
 )
 
 // JobHandler defines the function signature for processing jobs
-type JobHandler[T any] func(ctx context.Context, job *Job[T]) error
+// Jobs are passed by value to prevent accidental modifications
+type JobHandler[T any] func(ctx context.Context, job Job[T]) error
 
 // Scheduler manages the execution of jobs with a typed payload
 type Scheduler[T any] struct {
@@ -132,7 +133,8 @@ func (s *Scheduler[T]) worker(ctx context.Context, workerId int, jobs chan *Job[
 		startTime := time.Now()
 		s.log.Debug("processing job", "job-id", job.Id, "worker-id", workerId)
 
-		err := s.jobHandler(ctx, job)
+		// Pass job by value to prevent modifications
+		err := s.jobHandler(ctx, *job)
 		duration := time.Since(startTime)
 
 		// Update job status based on result
