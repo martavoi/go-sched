@@ -49,7 +49,7 @@ func main() {
 
 		log.Info("processing job",
 			"job-id", job.Id,
-			"duration", processingTime)
+			"duration", fmt.Sprintf("%.2fs", processingTime.Seconds()))
 
 		// Simulate work with random duration
 		time.Sleep(processingTime)

@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -136,10 +137,10 @@ func (s *Scheduler[T]) worker(ctx context.Context, workerId int, jobs chan *Job[
 
 		// Update job status based on result
 		if err != nil {
-			s.log.Info("failed to process job", "job-id", job.Id, "worker-id", workerId, "duration", duration, "error", err)
+			s.log.Info("failed to process job", "job-id", job.Id, "worker-id", workerId, "duration", fmt.Sprintf("%.2fs", duration.Seconds()), "error", err)
 			job.MakeFailed()
 		} else {
-			s.log.Info("job completed", "job-id", job.Id, "worker-id", workerId, "duration", duration)
+			s.log.Info("job completed", "job-id", job.Id, "worker-id", workerId, "duration", fmt.Sprintf("%.2fs", duration.Seconds()))
 			job.MakeCompleted()
 		}
 
