@@ -91,9 +91,11 @@ go-sched/
 ├── scheduler.go        # Main scheduler implementation
 ├── job.go             # Job types and interfaces
 ├── storage/           # Storage implementations
-│   └── memory.go     # In-memory store (for development/testing)
-└── examples/         # Usage example
-    └── simple/       # Complete working example
+│   ├── memory.go     # In-memory store (for development/testing)
+│   └── mongo/        # MongoDB store (for production)
+└── examples/         # Usage examples
+    ├── simple/       # In-memory example
+    └── mongo/        # MongoDB example
 ```
 
 ## Storage Implementations
@@ -106,24 +108,47 @@ Perfect for development, testing, and small-scale applications:
 store := storage.NewMemoryStore[YourPayloadType]()
 ```
 
+### MongoDB Store (Included)
+
+Production-ready persistent storage with MongoDB:
+
+```go
+import mongostore "go-sched/storage/mongo"
+
+client, _ := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+db := client.Database("scheduler")
+store := mongostore.NewMongoStore[YourPayloadType](db, "jobs")
+```
+
 ### Custom Storage
 
 Implement the `JobStore` interface for your database:
 
 ```go
 type JobStore[T any] interface {
-    FetchPendingJobs(after time.Time, limit int) ([]*Job[T], error)
+    FetchPendingJobs(after time.Time, limit int, visibilityTimeout time.Duration) ([]*Job[T], error)
     UpdateJob(job *Job[T]) error  
     AddJob(job *Job[T]) error
 }
 ```
 
-Examples: PostgreSQL, Redis, MongoDB, etc.
+Examples: PostgreSQL, Redis, etc.
 
-## Running the Example
+## Running Examples
 
+### Memory Store Example
 ```bash
 cd examples/simple
+go run main.go
+```
+
+### MongoDB Example
+```bash
+# Start MongoDB first
+docker run -d -p 27017:27017 --name mongo-scheduler mongo:latest
+
+# Run example
+cd examples/mongo
 go run main.go
 ```
 

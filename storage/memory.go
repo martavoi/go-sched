@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -43,6 +44,10 @@ func (s *MemoryStore[T]) FetchPendingJobs(after time.Time, limit int, visibility
 
 // UpdateJob updates an existing job's status and processing timestamp
 func (s *MemoryStore[T]) UpdateJob(job *scheduler.Job[T]) error {
+	if job.Id == "" {
+		return errors.New("job Id cannot be empty")
+	}
+
 	existingJob, ok := s.jobs[job.Id]
 	if !ok {
 		return fmt.Errorf("job not found: %s", job.Id)
@@ -58,6 +63,10 @@ func (s *MemoryStore[T]) UpdateJob(job *scheduler.Job[T]) error {
 
 // AddJob adds a new job to the store
 func (s *MemoryStore[T]) AddJob(job *scheduler.Job[T]) error {
+	if job.Id == "" {
+		return errors.New("job Id cannot be empty")
+	}
+
 	if _, exists := s.jobs[job.Id]; exists {
 		return fmt.Errorf("job already exists: %s", job.Id)
 	}

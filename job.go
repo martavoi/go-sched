@@ -1,6 +1,10 @@
 package scheduler
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // Job represents a scheduled job with a typed payload
 type Job[T any] struct {
@@ -10,6 +14,16 @@ type Job[T any] struct {
 	VisibleAfter *time.Time `json:"visibleAfter,omitempty"` // When job becomes visible again (visibility timeout)
 	ProcessedAt  *time.Time `json:"processedAt,omitempty"`  // When job was completed
 	Payload      T          `json:"payload"`
+}
+
+func NewJob[T any](processAfter time.Time, payload T) *Job[T] {
+	id := uuid.New().String()
+	return &Job[T]{
+		Id:           id,
+		Status:       "pending",
+		ProcessAfter: processAfter,
+		Payload:      payload,
+	}
 }
 
 // IsVisible returns true if the job is currently visible (can be picked up by workers)
