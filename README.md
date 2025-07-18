@@ -218,29 +218,6 @@ The scheduler handles `SIGTERM` and `SIGINT` signals:
 
 Perfect for containerized environments (Docker, Kubernetes).
 
-## Type Safety
-
-The scheduler uses **Go generics** for compile-time type safety:
-
-```go
-// ✅ Simple payload (any type)
-store := storage.NewMemoryStore[any]()
-
-// ✅ Custom payload type
-type EmailJob struct {
-    UserID string
-    Email  string
-}
-store := storage.NewMemoryStore[EmailJob]()
-
-// ✅ Type-safe payload access (no type assertions!)
-func handler(ctx context.Context, job *scheduler.Job[EmailJob]) error {
-    email := job.Payload.Email    // Direct access, compile-time verified
-    userID := job.Payload.UserID  // No runtime type checking needed
-    return sendEmail(email, userID)
-}
-```
-
 ## License
 
 Apache License 2.0
