@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/martavoi/go-sched/compare/v1.3.0...v1.4.0) (2025-07-18)
+
+
+### Features
+
+* couchbase store ([8527fb0](https://github.com/martavoi/go-sched/commit/8527fb03be01c98978b6590b46b7aed0d12a8a46))
+
 # [1.3.0](https://github.com/martavoi/go-sched/compare/v1.2.0...v1.3.0) (2025-07-18)
 
 
