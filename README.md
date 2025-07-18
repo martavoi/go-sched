@@ -93,10 +93,12 @@ go-sched/
 ├── job.go             # Job types and interfaces
 ├── storage/           # Storage implementations
 │   ├── memory.go     # In-memory store (for development/testing)
-│   └── mongo/        # MongoDB store (for production)
+│   ├── mongo/        # MongoDB store (for production)
+│   └── couchbase/    # Couchbase store (for enterprise)
 └── examples/         # Usage examples
     ├── simple/       # In-memory example
-    └── mongo/        # MongoDB example
+    ├── mongo/        # MongoDB example
+    └── couchbase/    # Couchbase example
 ```
 
 ## Storage Implementations
@@ -121,6 +123,28 @@ db := client.Database("scheduler")
 store := mongostore.NewMongoStore[YourPayloadType](db, "jobs")
 ```
 
+### Couchbase Store (Included)
+
+Enterprise-grade NoSQL storage with Couchbase 7.0+ (scopes and collections):
+
+```go
+import couchbasestore "go-sched/storage/couchbase"
+
+cluster, _ := gocb.Connect("couchbase://localhost", gocb.ClusterOptions{
+    Authenticator: gocb.PasswordAuthenticator{
+        Username: "Administrator",
+        Password: "password",
+    },
+})
+bucket := cluster.Bucket("scheduler")
+
+// Custom scope and collection (recommended)
+store := couchbasestore.NewCouchbaseStore[YourPayloadType](bucket, "production", "jobs")
+
+// Default scope with custom collection
+store := couchbasestore.NewCouchbaseStoreWithCollection[YourPayloadType](bucket, "jobs")
+```
+
 ### Custom Storage
 
 Implement the `JobStore` interface for your database:
@@ -133,7 +157,7 @@ type JobStore[T any] interface {
 }
 ```
 
-Examples: PostgreSQL, Redis, etc.
+Examples: PostgreSQL, Redis, DynamoDB, etc.
 
 ## Running Examples
 
@@ -150,6 +174,19 @@ docker run -d -p 27017:27017 --name mongo-scheduler mongo:latest
 
 # Run example
 cd examples/mongo
+go run main.go
+```
+
+### Couchbase Example
+```bash
+# Start Couchbase first
+docker run -d --name couchbase-scheduler \
+  -p 8091-8096:8091-8096 \
+  -p 11210-11211:11210-11211 \
+  couchbase:latest
+
+# Run example
+cd examples/couchbase
 go run main.go
 ```
 

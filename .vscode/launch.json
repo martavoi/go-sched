@@ -24,6 +24,21 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Debug Couchbase Example",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/examples/couchbase/main.go",
+            "env": {
+                "COUCHBASE_URI": "couchbase://localhost",
+                "COUCHBASE_USERNAME": "Administrator",
+                "COUCHBASE_PASSWORD": "password"
+            },
+            "args": [],
+            "showLog": true,
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Debug Tests",
             "type": "go",
             "request": "launch",
