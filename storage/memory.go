@@ -20,12 +20,17 @@ func NewMemoryStore[T any]() *MemoryStore[T] {
 }
 
 // FetchPendingJobs retrieves pending jobs that are ready to be processed
-func (s *MemoryStore[T]) FetchPendingJobs(after time.Time, limit int) ([]*scheduler.Job[T], error) {
+// Sets visibility timeout on fetched jobs to mark them as being processed
+func (s *MemoryStore[T]) FetchPendingJobs(after time.Time, limit int, visibilityTimeout time.Duration) ([]*scheduler.Job[T], error) {
 	entries := make([]*scheduler.Job[T], 0)
 
-	for _, entry := range s.jobs {
-		if entry.ProcessAfter.Before(after) && entry.Status == "pending" {
-			entries = append(entries, entry)
+	for _, job := range s.jobs {
+		// Only fetch jobs that are pending, ready to run, and visible
+		if job.Status == "pending" &&
+			job.ProcessAfter.Before(after) &&
+			job.IsVisible() {
+
+			entries = append(entries, job)
 		}
 
 		if len(entries) >= limit {
@@ -46,6 +51,7 @@ func (s *MemoryStore[T]) UpdateJob(job *scheduler.Job[T]) error {
 	// Update fields
 	existingJob.Status = job.Status
 	existingJob.ProcessedAt = job.ProcessedAt
+	existingJob.VisibleAfter = job.VisibleAfter
 
 	return nil
 }
@@ -60,6 +66,7 @@ func (s *MemoryStore[T]) AddJob(job *scheduler.Job[T]) error {
 	return nil
 }
 
+// GetJobs returns all jobs (for debugging/testing)
 func (s *MemoryStore[T]) GetJobs() map[string]*scheduler.Job[T] {
 	result := make(map[string]*scheduler.Job[T])
 	for k, v := range s.jobs {

@@ -12,21 +12,23 @@ type JobHandler[T any] func(ctx context.Context, job *Job[T]) error
 
 // Scheduler manages the execution of jobs with a typed payload
 type Scheduler[T any] struct {
-	store       JobStore[T]
-	workerCount int
-	interval    time.Duration
-	log         *slog.Logger
-	jobHandler  JobHandler[T]
+	store             JobStore[T]
+	workerCount       int
+	interval          time.Duration
+	visibilityTimeout time.Duration
+	log               *slog.Logger
+	jobHandler        JobHandler[T]
 }
 
-// NewScheduler creates a new scheduler instance
-func NewScheduler[T any](store JobStore[T], workerCount int, interval time.Duration, jobHandler JobHandler[T], log *slog.Logger) *Scheduler[T] {
+// NewScheduler creates a new scheduler instance with visibility timeout
+func NewScheduler[T any](store JobStore[T], workerCount int, interval time.Duration, visibilityTimeout time.Duration, jobHandler JobHandler[T], log *slog.Logger) *Scheduler[T] {
 	return &Scheduler[T]{
-		store:       store,
-		workerCount: workerCount,
-		interval:    interval,
-		jobHandler:  jobHandler,
-		log:         log,
+		store:             store,
+		workerCount:       workerCount,
+		interval:          interval,
+		visibilityTimeout: visibilityTimeout,
+		jobHandler:        jobHandler,
+		log:               log,
 	}
 }
 
@@ -50,18 +52,13 @@ func (s *Scheduler[T]) Run(ctx context.Context) <-chan struct{} {
 			select {
 			case <-ctx.Done():
 				close(jobs)
-				s.log.Info("shutting down scheduler...", "remaining-jobs", len(jobs))
-
-				// Clean up any jobs remaining in channel (mark them back as pending)
-				// Do this synchronously to ensure completion before exit
+				s.log.Info("shutting down scheduler... making remaining jobs visible", "remaining-jobs", len(jobs))
+				// Graceful cleanup: make remaining jobs immediately visible
 				for remainingJob := range jobs {
-					remainingJob.Status = "pending"
-					remainingJob.ProcessedAt = nil
+					remainingJob.MakeVisible()
 					s.store.UpdateJob(remainingJob)
-					s.log.Debug("marked unprocessed job as pending", "job-id", remainingJob.Id)
+					s.log.Debug("made unprocessed job visible", "job-id", remainingJob.Id)
 				}
-
-				s.log.Debug("waiting for workers to finish...")
 				wg.Wait()
 				s.log.Info("scheduler shutdown complete")
 				return
@@ -71,7 +68,7 @@ func (s *Scheduler[T]) Run(ctx context.Context) <-chan struct{} {
 				availableSlots := cap(jobs) - len(jobs)
 				if availableSlots > 0 {
 					// Fetch jobs to fill available slots
-					entries, err := s.store.FetchPendingJobs(time.Now(), availableSlots)
+					entries, err := s.store.FetchPendingJobs(time.Now(), availableSlots, s.visibilityTimeout)
 					if err != nil {
 						s.log.Error("failed to fetch pending entries", "error", err)
 						// Brief pause on error to prevent tight error loop
@@ -85,16 +82,12 @@ func (s *Scheduler[T]) Run(ctx context.Context) <-chan struct{} {
 						continue
 					}
 
-					// Dispatch all fetched jobs
+					// Make jobs invisible and dispatch them
 					for _, entry := range entries {
+						s.log.Debug("making job invisible", "job-id", entry.Id)
+						entry.MakeInvisible(s.visibilityTimeout)
+						s.store.UpdateJob(entry)
 						s.log.Debug("dispatching job", "job-id", entry.Id)
-						// Mark as dispatched when putting in channel to prevent duplicate fetching
-						entry.Status = "processing"
-						err := s.store.UpdateJob(entry)
-						if err != nil {
-							s.log.Error("failed to mark job as dispatched", "job-id", entry.Id, "error", err)
-							continue
-						}
 						jobs <- entry
 					}
 				} else {
@@ -118,15 +111,11 @@ func (s *Scheduler[T]) worker(ctx context.Context, workerId int, jobs chan *Job[
 		duration := time.Since(startTime)
 
 		if err != nil {
-			job.Status = "failed"
-			now := time.Now()
-			job.ProcessedAt = &now
+			job.MakeFailed()
 			s.store.UpdateJob(job)
 			s.log.Error("failed to process job", "job-id", job.Id, "worker-id", workerId, "duration", duration, "error", err)
 		} else {
-			job.Status = "completed"
-			now := time.Now()
-			job.ProcessedAt = &now
+			job.MakeCompleted()
 			s.store.UpdateJob(job)
 			s.log.Debug("job completed", "job-id", job.Id, "worker-id", workerId, "duration", duration)
 		}

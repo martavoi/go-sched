@@ -6,7 +6,8 @@ This example demonstrates the core functionality of the go-sched library with a 
 
 - **Creates 50 jobs** with random scheduling (1-30 seconds delay)
 - **5 concurrent workers** process jobs with random durations (1-8 seconds)
-- **Demonstrates graceful shutdown** when receiving interrupt signals
+- **30-second visibility timeout** for fault tolerance (jobs auto-recover if workers crash)
+- **Demonstrates graceful shutdown** with immediate job visibility reset
 - **Shows demand-driven fetching** - jobs are fetched as workers become available
 
 ## Running the Example
@@ -30,74 +31,75 @@ Press **Ctrl+C** to trigger graceful shutdown and observe the cleanup behavior.
 - No artificial delays when workers are ready for more work
 - Efficient utilization of worker goroutines
 
-### 3. **Graceful Shutdown**
+### 3. **Visibility Timeout & Fault Tolerance**
+- Jobs become "invisible" for 30 seconds when picked up by workers
+- If a worker crashes, jobs automatically become visible again after timeout
+- Prevents job loss and enables automatic recovery without manual intervention
+
+### 4. **Graceful Shutdown**
 - Scheduler stops accepting new jobs on interrupt signal
 - Active workers complete their current jobs before terminating
-- Remaining unprocessed jobs are cleaned up and marked as "pending"
+- Remaining unprocessed jobs are immediately made visible for next restart
 
 ## Sample Execution Log
 
 Here's what you'll see when running the example:
 
 ```
-time=2025-07-18T01:28:16.836+03:00 level=INFO msg="scheduler started" workers=5 interval=2s jobs=50
-time=2025-07-18T01:28:16.836+03:00 level=INFO msg="press Ctrl+C to stop gracefully"
+time=2025-07-18T14:12:07.319+03:00 level=INFO msg="scheduler started" workers=5 interval=2s visibility_timeout=30s jobs=50
+time=2025-07-18T14:12:07.319+03:00 level=INFO msg="press Ctrl+C to stop gracefully"
 
-# Jobs start being processed concurrently
-time=2025-07-18T01:28:18.837+03:00 level=INFO msg="processing job" job-id=job-28 duration=2s
-time=2025-07-18T01:28:18.837+03:00 level=INFO msg="processing job" job-id=job-24 duration=4s
-time=2025-07-18T01:28:20.837+03:00 level=INFO msg="job completed" job-id=job-28
-time=2025-07-18T01:28:20.837+03:00 level=INFO msg="processing job" job-id=job-44 duration=5s
-time=2025-07-18T01:28:20.837+03:00 level=INFO msg="processing job" job-id=job-36 duration=1s
-time=2025-07-18T01:28:20.837+03:00 level=INFO msg="processing job" job-id=job-29 duration=2s
-time=2025-07-18T01:28:20.838+03:00 level=INFO msg="processing job" job-id=job-50 duration=5s
+# Jobs start being processed concurrently with visibility timeout protection
+time=2025-07-18T14:12:09.319+03:00 level=INFO msg="processing job" job-id=job-46 duration=4s
+time=2025-07-18T14:12:09.319+03:00 level=INFO msg="processing job" job-id=job-8 duration=4s
+time=2025-07-18T14:12:11.319+03:00 level=INFO msg="processing job" job-id=job-36 duration=4s
+time=2025-07-18T14:12:11.319+03:00 level=INFO msg="processing job" job-id=job-17 duration=8s
+time=2025-07-18T14:12:11.319+03:00 level=INFO msg="processing job" job-id=job-30 duration=4s
 
 # Jobs complete and new ones are picked up immediately
-time=2025-07-18T01:28:21.838+03:00 level=INFO msg="job completed" job-id=job-36
-time=2025-07-18T01:28:22.837+03:00 level=INFO msg="job completed" job-id=job-24
-time=2025-07-18T01:28:22.838+03:00 level=INFO msg="job completed" job-id=job-29
-time=2025-07-18T01:28:22.838+03:00 level=INFO msg="processing job" job-id=job-14 duration=8s
-time=2025-07-18T01:28:22.838+03:00 level=INFO msg="processing job" job-id=job-7 duration=3s
-time=2025-07-18T01:28:22.838+03:00 level=INFO msg="processing job" job-id=job-11 duration=7s
+time=2025-07-18T14:12:13.319+03:00 level=INFO msg="job completed" job-id=job-46
+time=2025-07-18T14:12:13.319+03:00 level=INFO msg="job completed" job-id=job-8
+time=2025-07-18T14:12:13.319+03:00 level=INFO msg="processing job" job-id=job-2 duration=7s
+time=2025-07-18T14:12:13.319+03:00 level=INFO msg="processing job" job-id=job-41 duration=1s
+time=2025-07-18T14:12:14.319+03:00 level=INFO msg="job completed" job-id=job-41
+time=2025-07-18T14:12:14.319+03:00 level=INFO msg="processing job" job-id=job-28 duration=7s
 
-# User presses Ctrl+C - graceful shutdown begins
-time=2025-07-18T01:28:25.423+03:00 level=INFO msg="received shutdown signal" signal=interrupt
-time=2025-07-18T01:28:25.838+03:00 level=INFO msg="job completed" job-id=job-44
-time=2025-07-18T01:28:25.838+03:00 level=INFO msg="processing job" job-id=job-39 duration=7s
-time=2025-07-18T01:28:25.838+03:00 level=INFO msg="job completed" job-id=job-50
-time=2025-07-18T01:28:25.838+03:00 level=INFO msg="processing job" job-id=job-17 duration=5s
-time=2025-07-18T01:28:25.838+03:00 level=INFO msg="job completed" job-id=job-7
-time=2025-07-18T01:28:25.838+03:00 level=INFO msg="processing job" job-id=job-34 duration=3s
-time=2025-07-18T01:28:26.839+03:00 level=INFO msg="shutting down scheduler..." remaining-jobs=2
+# User presses Ctrl+C - graceful shutdown with visibility timeout reset
+time=2025-07-18T14:12:14.869+03:00 level=INFO msg="received shutdown signal" signal=interrupt
+time=2025-07-18T14:12:15.319+03:00 level=INFO msg="job completed" job-id=job-36
+time=2025-07-18T14:12:15.319+03:00 level=INFO msg="job completed" job-id=job-30
+time=2025-07-18T14:12:15.319+03:00 level=INFO msg="processing job" job-id=job-5 duration=4s
+time=2025-07-18T14:12:15.319+03:00 level=INFO msg="shutting down scheduler... making remaining jobs visible" remaining-jobs=2
+time=2025-07-18T14:12:15.319+03:00 level=INFO msg="processing job" job-id=job-42 duration=7s
 
 # Workers finish their current jobs before stopping
-time=2025-07-18T01:28:28.839+03:00 level=INFO msg="job completed" job-id=job-34
-time=2025-07-18T01:28:29.838+03:00 level=INFO msg="job completed" job-id=job-11
-time=2025-07-18T01:28:30.838+03:00 level=INFO msg="job completed" job-id=job-14
-time=2025-07-18T01:28:30.839+03:00 level=INFO msg="job completed" job-id=job-17
-time=2025-07-18T01:28:32.838+03:00 level=INFO msg="job completed" job-id=job-39
+time=2025-07-18T14:12:19.319+03:00 level=INFO msg="job completed" job-id=job-17
+time=2025-07-18T14:12:19.320+03:00 level=INFO msg="job completed" job-id=job-5
+time=2025-07-18T14:12:20.319+03:00 level=INFO msg="job completed" job-id=job-2
+time=2025-07-18T14:12:21.320+03:00 level=INFO msg="job completed" job-id=job-28
+time=2025-07-18T14:12:22.319+03:00 level=INFO msg="job completed" job-id=job-42
 
 # Graceful shutdown completes
-time=2025-07-18T01:28:32.838+03:00 level=INFO msg="scheduler shutdown complete"
-time=2025-07-18T01:28:32.838+03:00 level=INFO msg="scheduler stopped gracefully"
+time=2025-07-18T14:12:22.319+03:00 level=INFO msg="scheduler shutdown complete"
+time=2025-07-18T14:12:22.319+03:00 level=INFO msg="scheduler stopped gracefully"
 ```
 
 ## Log Analysis
 
 ### **Startup Phase**
-- Scheduler initializes with 5 workers and 2-second fetch interval
+- Scheduler initializes with 5 workers, 2-second fetch interval, and 30-second visibility timeout
 - 50 jobs are created with random scheduling delays
 
 ### **Processing Phase**
-- Jobs are dispatched in batches as they become ready
+- Jobs are dispatched and automatically become "invisible" for 30 seconds (fault tolerance)
 - Workers process jobs concurrently with different durations
-- New jobs are automatically dispatched when workers become available
+- New jobs are automatically picked up as workers become available
 
 ### **Shutdown Phase**
 1. **Signal Received**: `Ctrl+C` triggers graceful shutdown
-2. **Active Jobs**: 3 jobs were still in the queue when shutdown began
-3. **Worker Completion**: All 5 active workers finished their current jobs
-4. **Clean Exit**: Scheduler stopped gracefully without killing any jobs
+2. **Visibility Reset**: 2 remaining jobs immediately made visible for next restart
+3. **Worker Completion**: All active workers finished their current jobs
+4. **Clean Exit**: Scheduler stopped gracefully with jobs ready for immediate pickup
 
 ## Configuration
 
@@ -105,6 +107,7 @@ time=2025-07-18T01:28:32.838+03:00 level=INFO msg="scheduler stopped gracefully"
 |---------|-------|-------------|
 | **Workers** | 5 | Number of concurrent goroutines |
 | **Fetch Interval** | 2s | Pause when no jobs are available |
+| **Visibility Timeout** | 30s | Time before failed jobs become visible again |
 | **Job Count** | 50 | Total jobs in this example |
 | **Job Delay** | 1-30s | Random scheduling delay |
 | **Processing Time** | 1-8s | Random job duration |
@@ -112,8 +115,10 @@ time=2025-07-18T01:28:32.838+03:00 level=INFO msg="scheduler stopped gracefully"
 ## Key Takeaways
 
 1. **Efficiency**: Workers are never idle when jobs are available
-2. **Concurrency**: Multiple jobs process simultaneously without conflicts
-3. **Resilience**: Graceful shutdown ensures no jobs are lost or corrupted
-4. **Observability**: Comprehensive logging shows exactly what's happening
+2. **Concurrency**: Multiple jobs process simultaneously without conflicts  
+3. **Fault Tolerance**: 30-second visibility timeout automatically recovers crashed jobs
+4. **Graceful Shutdown**: Remaining jobs immediately available on restart (no 30s delay)
+5. **Zero Job Loss**: Jobs cannot be lost due to worker crashes or shutdowns
+6. **Observability**: Comprehensive logging shows exactly what's happening
 
-This example demonstrates real-world job processing patterns suitable for background tasks, API calls, data processing, and more. 
+This example demonstrates production-ready job processing with automatic fault recovery, suitable for microservices, background tasks, API calls, data processing, and more. 

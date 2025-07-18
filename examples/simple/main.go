@@ -61,13 +61,15 @@ func main() {
 	// Create scheduler
 	const workerCount = 5
 	const interval = 2 * time.Second
+	const visibilityTimeout = 30 * time.Second // Jobs become visible again after 30s if worker crashes
 
-	scheduler := scheduler.NewScheduler(store, workerCount, interval, jobHandler, log)
+	scheduler := scheduler.NewScheduler(store, workerCount, interval, visibilityTimeout, jobHandler, log)
 	done := scheduler.Run(ctx)
 
 	log.Info("scheduler started",
 		"workers", workerCount,
 		"interval", interval,
+		"visibility_timeout", visibilityTimeout,
 		"jobs", 50)
 	log.Info("press Ctrl+C to stop gracefully")
 
