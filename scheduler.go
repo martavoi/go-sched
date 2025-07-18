@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/cenkalti/backoff/v5"
 )
 
 // JobHandler defines the function signature for processing jobs
@@ -56,7 +58,16 @@ func (s *Scheduler[T]) Run(ctx context.Context) <-chan struct{} {
 				// Graceful cleanup: make remaining jobs immediately visible
 				for remainingJob := range jobs {
 					remainingJob.MakeVisible()
-					s.store.UpdateJob(remainingJob)
+					_, err := backoff.Retry(ctx, func() (any, error) {
+						err := s.store.UpdateJob(remainingJob)
+						return nil, err
+					}, backoff.WithNotify(func(err error, d time.Duration) {
+						s.log.Error("failed to make unprocessed job visible, retrying...", "job-id", remainingJob.Id, "error", err, "duration", d)
+					}))
+					if err != nil {
+						s.log.Error("failed to make unprocessed job visible after retries", "job-id", remainingJob.Id, "error", err)
+					}
+
 					s.log.Debug("made unprocessed job visible", "job-id", remainingJob.Id)
 				}
 				wg.Wait()
@@ -68,7 +79,11 @@ func (s *Scheduler[T]) Run(ctx context.Context) <-chan struct{} {
 				availableSlots := cap(jobs) - len(jobs)
 				if availableSlots > 0 {
 					// Fetch jobs to fill available slots
-					entries, err := s.store.FetchPendingJobs(time.Now(), availableSlots, s.visibilityTimeout)
+					entries, err := backoff.Retry(ctx, func() ([]*Job[T], error) {
+						return s.store.FetchPendingJobs(time.Now(), availableSlots, s.visibilityTimeout)
+					}, backoff.WithNotify(func(err error, d time.Duration) {
+						s.log.Error("failed to fetch pending entries, retrying...", "error", err, "duration", d)
+					}))
 					if err != nil {
 						s.log.Error("failed to fetch pending entries", "error", err)
 						// Brief pause on error to prevent tight error loop
@@ -86,7 +101,16 @@ func (s *Scheduler[T]) Run(ctx context.Context) <-chan struct{} {
 					for _, entry := range entries {
 						s.log.Debug("making job invisible", "job-id", entry.Id)
 						entry.MakeInvisible(s.visibilityTimeout)
-						s.store.UpdateJob(entry)
+						_, err := backoff.Retry(ctx, func() (any, error) {
+							err := s.store.UpdateJob(entry)
+							return nil, err
+						}, backoff.WithNotify(func(err error, d time.Duration) {
+							s.log.Error("failed to make job invisible, retrying...", "job-id", entry.Id, "error", err, "duration", d)
+						}))
+						if err != nil {
+							s.log.Error("failed to make job invisible after retries", "job-id", entry.Id, "error", err)
+						}
+
 						s.log.Debug("dispatching job", "job-id", entry.Id)
 						jobs <- entry
 					}
@@ -110,14 +134,25 @@ func (s *Scheduler[T]) worker(ctx context.Context, workerId int, jobs chan *Job[
 		err := s.jobHandler(ctx, job)
 		duration := time.Since(startTime)
 
+		// Update job status based on result
 		if err != nil {
+			s.log.Info("failed to process job", "job-id", job.Id, "worker-id", workerId, "duration", duration, "error", err)
 			job.MakeFailed()
-			s.store.UpdateJob(job)
-			s.log.Error("failed to process job", "job-id", job.Id, "worker-id", workerId, "duration", duration, "error", err)
 		} else {
+			s.log.Info("job completed", "job-id", job.Id, "worker-id", workerId, "duration", duration)
 			job.MakeCompleted()
-			s.store.UpdateJob(job)
-			s.log.Debug("job completed", "job-id", job.Id, "worker-id", workerId, "duration", duration)
+		}
+
+		// Update job with retry logic
+		_, updateErr := backoff.Retry(ctx, func() (any, error) {
+			err := s.store.UpdateJob(job)
+			return nil, err
+		}, backoff.WithNotify(func(err error, d time.Duration) {
+			s.log.Error("failed to update job, retrying...", "job-id", job.Id, "error", err, "duration", d)
+		}))
+
+		if updateErr != nil {
+			s.log.Error("failed to update job after retries", "job-id", job.Id, "error", updateErr)
 		}
 	}
 

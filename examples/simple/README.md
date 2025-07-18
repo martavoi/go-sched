@@ -117,8 +117,9 @@ time=2025-07-18T14:12:22.319+03:00 level=INFO msg="scheduler stopped gracefully"
 1. **Efficiency**: Workers are never idle when jobs are available
 2. **Concurrency**: Multiple jobs process simultaneously without conflicts  
 3. **Fault Tolerance**: 30-second visibility timeout automatically recovers crashed jobs
-4. **Graceful Shutdown**: Remaining jobs immediately available on restart (no 30s delay)
-5. **Zero Job Loss**: Jobs cannot be lost due to worker crashes or shutdowns
-6. **Observability**: Comprehensive logging shows exactly what's happening
+4. **Storage Resilience**: Exponential backoff retry handles temporary storage failures automatically
+5. **Graceful Shutdown**: Remaining jobs immediately available on restart (no 30s delay)
+6. **Zero Job Loss**: Jobs cannot be lost due to worker crashes, shutdowns, or storage issues
+7. **Observability**: Comprehensive logging shows exactly what's happening
 
 This example demonstrates production-ready job processing with automatic fault recovery, suitable for microservices, background tasks, API calls, data processing, and more. 

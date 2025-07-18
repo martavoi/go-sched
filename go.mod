@@ -3,6 +3,7 @@ module go-sched
 go 1.24.4
 
 require (
+	github.com/cenkalti/backoff/v5 v5.0.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/compress v1.16.7 // indirect

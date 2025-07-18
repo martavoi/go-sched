@@ -1,6 +1,6 @@
 # go-sched
 
-A lightweight, concurrent job scheduler library for Go that efficiently processes background tasks using goroutines with graceful shutdown support.
+A lightweight, concurrent job scheduler library for Go that efficiently processes background tasks using goroutines with fault-tolerant storage operations and graceful shutdown support.
 
 ## Features
 
@@ -8,6 +8,7 @@ A lightweight, concurrent job scheduler library for Go that efficiently processe
 - **Concurrent Processing**: Configurable number of worker goroutines  
 - **Demand-Driven Fetching**: Fetches jobs based on worker capacity, not timers
 - **Fault Tolerance**: Visibility timeout ensures zero job loss on worker crashes
+- **Exponential Backoff Retry**: Automatic retry with exponential backoff for all storage operations
 - **Graceful Shutdown**: Proper cleanup on termination signals
 - **I/O Optimized**: Designed for HTTP requests, database operations, and other I/O-bound tasks
 
@@ -160,6 +161,15 @@ go run main.go
 | `fetchInterval` | Pause when no jobs available | 1-5 seconds |
 | `visibilityTimeout` | Time before failed jobs become visible again | 30 seconds - 5 minutes |
 
+### **Retry Policy (Built-in)**
+The scheduler automatically uses exponential backoff for all storage operations:
+- **Initial Delay**: 100ms
+- **Max Delay**: 5 seconds  
+- **Max Retries**: Continues until context cancellation
+- **Backoff Factor**: 2x (exponential growth)
+
+No configuration needed - works out of the box for maximum reliability.
+
 ## Performance Tuning
 
 ### For I/O-Bound Jobs
@@ -185,12 +195,25 @@ The scheduler provides automatic fault recovery and graceful shutdown:
 - If worker crashes, jobs automatically become visible again after timeout
 - Prevents job loss and enables automatic recovery
 
+### **Exponential Backoff Retry Policy**
+All storage operations are protected with exponential backoff retry:
+- **Job Status Updates**: Automatic retry when marking jobs as completed/failed
+- **Visibility Changes**: Retry when making jobs visible/invisible
+- **Shutdown Operations**: Resilient cleanup of remaining jobs
+- **Self-Recovery**: Temporary storage failures don't stop the scheduler
+
+**Benefits:**
+- **Network Resilience**: Handles temporary network issues with databases
+- **Database Failover**: Survives brief database connection drops
+- **Resource Contention**: Gracefully handles storage system overload
+- **Zero Data Loss**: Jobs are never lost due to transient storage failures
+
 ### **Graceful Shutdown**
 The scheduler handles `SIGTERM` and `SIGINT` signals:
 
 1. Stops fetching new jobs
 2. Waits for active workers to complete current jobs  
-3. Makes remaining unprocessed jobs immediately visible (no timeout delay)
+3. Makes remaining unprocessed jobs immediately visible (with retry)
 4. Exits cleanly
 
 Perfect for containerized environments (Docker, Kubernetes).
