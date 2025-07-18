@@ -23,4 +23,9 @@ bin/
 # Node.js dependencies (for semantic-release)
 node_modules/
 package-lock.json
-npm-debug.log* 
+npm-debug.log*
+
+# Environment files (sensitive credentials)
+.env
+.env.local
+.env.*.local 

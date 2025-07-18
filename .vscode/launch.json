@@ -18,9 +18,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/examples/mongo/main.go",
-            "env": {
-                "MONGO_URI": "mongodb://subly:P%40ssw0rd!@localhost:27017"
-            },
+            "envFile": "${workspaceFolder}/.env",
             "args": [],
             "showLog": true,
             "console": "integratedTerminal"

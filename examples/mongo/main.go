@@ -58,12 +58,7 @@ func main() {
 		// Random delay between 1-30 seconds from now
 		randomDelay := time.Duration(rand.Intn(30)+1) * time.Second
 
-		job := &scheduler.Job[any]{
-			Id:           fmt.Sprintf("job-%d", i),
-			Status:       "pending",
-			ProcessAfter: time.Now().Add(randomDelay),
-			Payload:      nil,
-		}
+		job := scheduler.NewJob[any](time.Now().Add(randomDelay), nil)
 
 		if err := store.AddJob(job); err != nil {
 			log.Error("failed to add job", "job-id", job.Id, "error", err)
